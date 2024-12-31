@@ -1,9 +1,7 @@
 const User = require("../models/users.js");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
 const sendConfirmationMail = require("../utils/sendMail.js");
-const { generateToken } = require("../utils/generateToken.js");
-const UserInfo = require("../models/userInfo.js");
+const Blacklist = require("../models/blacklist.js");
 
 const register = async (req, res) => {
   try {
@@ -41,6 +39,7 @@ const login = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Log In Successfully!",
+      userId:user._id,
       token: await user.generateJsonWebToken(),
     });
   } catch (error) {
@@ -50,7 +49,25 @@ const login = async (req, res) => {
   }
 };
 
+const logout = async (req, res) => {
+  const token = req.header("Authorization")?.replace("Bearer ", "").trim();
 
+  try {
+    // Check if the token is already blacklisted
+    const isBlacklisted = await Blacklist.findOne({ token });
+    if (isBlacklisted) {
+      return res.status(200).json({ success: true, message: "Already logged out." });
+    }
+
+    // Save the token to the blacklist
+    await Blacklist.create({ token });
+
+    res.status(200).json({ success: true, message: "Logged out successfully." });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "An error occurred while logging out." });
+  }
+};
 
 const validateAuthToken = async (req, res) => {
   try {
@@ -66,4 +83,4 @@ const validateAuthToken = async (req, res) => {
   }
 };
 
-module.exports = { login, register, validateAuthToken };
+module.exports = { login, register, logout,validateAuthToken };

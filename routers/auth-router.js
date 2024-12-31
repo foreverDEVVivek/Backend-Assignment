@@ -19,7 +19,7 @@ Router.route("/register").post(
   authController.register
 );
 
-//Login Route to validate login credentials and send otp for further login process...
+//Login Route to validate login credentials ...
 Router.route("/login").post(
   requestLimiter,
   validateLogin,
@@ -27,6 +27,11 @@ Router.route("/login").post(
   authController.login
 );
 
+//Logout Route to logout the logged in user ...
+Router.route("/logout").get(
+  validateAuthToken,
+  authController.logout
+)
 
 //Auth route to validate the token...
 Router.route("/validate-token").get(

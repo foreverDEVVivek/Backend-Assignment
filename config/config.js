@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const authRouter =require('../routers/auth-router');
 const userRouter = require('../routers/user-router');
+const adminRouter=require('../routers/admin-router');
 const errorMiddleware=require('../middleware/error-middleware');
 const { initializeSocket } = require('../socket/socket');
 const cors = require('cors');
@@ -19,4 +20,4 @@ async function connectMongoDB(){
     await mongoose.connect(process.env.MONGO_DB_URI);
 }
 
-module.exports = {cors,corsOptions,initializeSocket,authRouter,http,errorMiddleware,connectMongoDB,userRouter}
+module.exports = {adminRouter,cors,corsOptions,initializeSocket,authRouter,http,errorMiddleware,connectMongoDB,userRouter}

@@ -1,9 +1,7 @@
 const { userSchema, loginSchema } = require("../schema/auth-schema.js");
-const otpSchema = require("../schema/otp-schema.js");
-const sendConfirmationMail = require("../utils/sendMail.js");
+const Blacklist= require("../models/blacklist.js");
 const User = require("../models/users.js");
 const jwt = require("jsonwebtoken");
-const bcrypt=require('bcryptjs')
 const rateLimit= require('express-rate-limit');
 
 const requestLimiter = rateLimit({
@@ -47,55 +45,6 @@ module.exports.validateIsExist = async (req, res, next) => {
   }
 };
 
-module.exports.validateRegisterOtp = async (req, res, next) => {
-  try {
-    const { error } = otpSchema.validate(req.body);
-
-    if (error) {
-      const errorData = {
-        status: 404,
-        message: error.message,
-        extraDetails: error.name,
-      };
-      // Create a custom error object if users entered invalid otp
-      const customError = new Error(errorData.message);
-      customError.status = errorData.status;
-      customError.extraDetails = errorData.extraDetails;
-
-      return next(customError);
-    }
-
-    const authToken = req.header("Authorization").replace("Bearer ", "").trim();
-    const verifiedUser = jwt.verify(authToken, process.env.JWT_SECRET_KEY);
-
-    const otp = await Otp.findOne({
-      otp: req.body.otp,
-      email: verifiedUser.email,
-    });
-
-    if (!otp) {
-      res.status(404).json({
-        success: false,
-        message: "Otp was not found try again later!",
-      });
-    } else {
-      next();
-    }
-  } catch (error) {
-    const errorData = {
-      status: 500,
-      message: error.message,
-      extraDetails: error.name,
-    };
-    // Create a custom error object
-    const customError = new Error(errorData.message);
-    customError.status = errorData.status;
-    customError.extraDetails = errorData.extraDetails;
-
-    return next(customError);
-  }
-};
-
 module.exports.validateLogin = async (req, res, next) => {
   try {
     const { error } = loginSchema.validate(req.body);
@@ -109,64 +58,47 @@ module.exports.validateLogin = async (req, res, next) => {
   }
 };
 
-module.exports.validateLoginOtp = async (req, res, next) => {
+module.exports.validateIsRegistered = async (req, res, next) => {
   try {
-    const { error } = otpSchema.validate(req.body);
-    if (error) {
-      const errorData = {
-        status: 404,
-        message: error.message,
-        extraDetails: error.name,
-      };
-      // Create a custom error object if users entered invalid otp
-      const customError = new Error(errorData.message);
-      customError.status = errorData.status;
-      customError.extraDetails = errorData.extraDetails;
-
-      return next(customError);
-    }
-
-    const authToken = req.header("Authorization").replace("Bearer ", "").trim();
-    const verifiedUser = jwt.verify(authToken, process.env.JWT_SECRET_KEY);
-
-    const otp = await Otp.findOne({
-      email: verifiedUser.email,
-      otp: req.body.otp,
+    const user = await User.findOne({
+      email: req.body.email,
     });
-
-    if (!otp) {
-      res.status(404).json({
-        success: false,
-        message: "Otp was not found try again later!",
-      });
+    if (!user) {
+      res.status(404).json({ success: false, message: "User not found" });
     } else {
-      next();
+      const areValidCredentials= await  user.comparePassword(req.body.password);
+      if (!areValidCredentials) {
+        res
+          .status(401)
+          .json({ message: "Invalid credentials", success: false });
+      } else {
+        next();
+      }
     }
   } catch (error) {
-    const errorData = {
-      status: 500,
-      message: error.message,
-      extraDetails: error.name,
-    };
-    // Create a custom error object
-    const customError = new Error(errorData.message);
-    customError.status = errorData.status;
-    customError.extraDetails = errorData.extraDetails;
-
-    return next(customError);
+    res.status(500).json({ message: error.message, success: false });
   }
 };
 
+
+//User Router Middleware
 //creating a middleware to check whether user has the token or not
 module.exports.validateAuthToken = async (req, res, next) => {
   // Validate JWT token here
   try {
     if (!req.header("Authorization")) {
-      res.status(403).json({ message: "No Token Provided", success: false });
+      return res.status(403).json({ message: "No Token Provided", success: false });
     } else {
       const token = req.header("Authorization").replace("Bearer ", "").trim();
       if (!token) throw new Error("No token provided");
-
+      
+      // Check if the token is blacklisted
+    const isBlacklisted = await Blacklist.findOne({ token });
+    if (isBlacklisted) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Token is invalid (blacklisted)." });
+      }
       const jwtVerified = jwt.verify(token, process.env.JWT_SECRET_KEY);
       if (jwtVerified) next();
       else
@@ -195,27 +127,5 @@ module.exports.validateAuthToken = async (req, res, next) => {
     } else {
       res.status(500).json({ message: error.message, success: false });
     }
-  }
-};
-
-module.exports.validateIsRegistered = async (req, res, next) => {
-  try {
-    const user = await User.findOne({
-      email: req.body.email,
-    });
-    if (!user) {
-      res.status(404).json({ success: false, message: "User not found" });
-    } else {
-      const areValidCredentials= await  user.comparePassword(req.body.password);
-      if (!areValidCredentials) {
-        res
-          .status(401)
-          .json({ message: "Invalid credentials", success: false });
-      } else {
-        next();
-      }
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message, success: false });
   }
 };
