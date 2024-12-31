@@ -13,7 +13,7 @@ const profileSettingsSchema = mongoose.Schema({
   //About You
   aboutYou: {
     type: String,
-    default: "Hey there i am using Your Chat",
+    default: "Newbie",
     set: function (value) {
       return value || this.aboutYou;
     },
@@ -54,12 +54,6 @@ const userInfo = Schema({
     },
   ],
 
-  //settings options
-  settings: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Setting",
-    default:null,
-  },
 });
 
 const UserInfo = mongoose.model("UserInfo", userInfo);
